@@ -1,0 +1,50 @@
+import streamlit as st
+import numpy as np
+import wave
+import pywt
+import scipy.fftpack
+
+def kompresi_audio():
+    st.title('Kompresi Audio')
+    st.write("Unggah file audio (WAV) dan kompres dengan Discrete Wavelet Transform (DWT) atau Discrete Cosine Transform (DCT).")
+
+    uploaded_file = st.file_uploader("Unggah file audio", type=['wav'])
+
+    if uploaded_file is not None:
+        # Read the uploaded audio file
+        with wave.open(uploaded_file, 'rb') as wave_file:
+            params = wave_file.getparams()
+            frames = wave_file.readframes(params.nframes)
+            audio_data = np.frombuffer(frames, dtype=np.int16)
+        
+        st.write("File audio berhasil diunggah. Pilih metode kompresi:")
+
+        # Select compression method
+        method = st.selectbox("Metode Kompresi", ["Discrete Wavelet Transform (DWT)", "Discrete Cosine Transform (DCT)"])
+
+        if method == "Discrete Wavelet Transform (DWT)":
+            # Apply DWT
+            coeffs = pywt.wavedec(audio_data, 'db1', level=5)
+            coeffs[1:] = [pywt.threshold(i, value=0.05 * np.max(i), mode='soft') for i in coeffs[1:]]
+            compressed_audio = pywt.waverec(coeffs, 'db1')
+
+        elif method == "Discrete Cosine Transform (DCT)":
+            # Apply DCT
+            transformed = scipy.fftpack.dct(audio_data, norm='ortho')
+            threshold = 0.1 * np.max(transformed)
+            transformed[np.abs(transformed) < threshold] = 0
+            compressed_audio = scipy.fftpack.idct(transformed, norm='ortho')
+
+        st.write("Kompresi selesai. Unduh file audio yang telah dikompresi:")
+
+        # Save the compressed audio to a new file
+        output_file = 'compressed_audio.wav'
+        with wave.open(output_file, 'wb') as wave_write:
+            wave_write.setparams(params)
+            wave_write.writeframes(compressed_audio.astype(np.int16).tobytes())
+        
+        with open(output_file, 'rb') as f:
+            st.download_button('Unduh file audio terkompresi', f, file_name='compressed_audio.wav')
+
+if __name__ == '__main__':
+    kompresi_audio()
